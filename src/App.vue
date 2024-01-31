@@ -3,26 +3,41 @@
 </template>
 
 <script>
-import BaseEarth from '@/utils/Earth.js';
-import TWEEN from '@tweenjs/tween.js';
-import * as THREE from 'three';
-import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min.js';
-import { onBeforeUnmount, onMounted } from 'vue';
-import { random } from '@/utils';
-import useFileLoader from '@/hooks/useFileLoader.js';
-import useCountry from '@/hooks/useCountry.js';
-import useCoord from '@/hooks/useCoord.js';
-import useConversionStandardData from '@/hooks/useConversionStandardData.js';
-import useMapMarkedLightPillar from '@/hooks/map/useMapMarkedLightPillar';
-import useSequenceFrameAnimate from '@/hooks/useSequenceFrameAnimate';
-import useCSS2DRender from '@/hooks/useCSS2DRender';
-import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
-import * as d3 from 'd3';
-import { gsap } from 'gsap';
-import { regionData, flyFocus } from '@/utils/data';
+import BaseEarth from "@/utils/Earth.js";
+import TWEEN from "@tweenjs/tween.js";
+import * as THREE from "three";
+import { GUI } from "three/examples/jsm/libs/lil-gui.module.min.js";
+import { onBeforeUnmount, onMounted } from "vue";
+import { random } from "@/utils";
+import useFileLoader from "@/hooks/useFileLoader.js";
+import useCoord from "@/hooks/useCoord.js";
+import useConversionStandardData from "@/hooks/useConversionStandardData.js";
+import useMapMarkedLightPillar from "@/hooks/map/useMapMarkedLightPillar";
+import useSequenceFrameAnimate from "@/hooks/useSequenceFrameAnimate";
+import useCSS2DRender from "@/hooks/useCSS2DRender";
+import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils";
+import { regionData } from "@/utils/data";
+import FlyLine from "@/hooks/useFlyLine";
+import { Country, ProvinceSide } from "@/utils/utils";
+import { Line } from "@/hooks/useLine";
+import {
+  AmbientLight,
+  Color,
+  DirectionalLight,
+  DirectionalLightHelper,
+  Fog,
+  Mesh,
+  MeshBasicMaterial,
+  PlaneGeometry,
+  PointLight,
+  PointLightHelper,
+  TextureLoader,
+  MeshLambertMaterial,
+  LineBasicMaterial
+} from "three";
 
-let centerXY = [106.59893798828125, 26.918846130371094];
-let flyLineCenter = [103.931804, 30.652329];
+let centerXY = [120.109913, 29.181466];
+let flyLineCenter = [119.476498, 29.898918];
 
 let position = new THREE.Vector3(0, 0, 0),
   gridSize = 100,
@@ -31,7 +46,7 @@ let position = new THREE.Vector3(0, 0, 0),
   shapeSize = 1,
   shapeColor = 0x3464a2,
   pointSize = 0.15,
-  pointColor = 0x000000,
+  pointColor = "rgba(20,39,54,0.78)",
   pointLayout = { row: 200, col: 200 },
   pointBlending = THREE.CustomBlending,
   diffuse = false,
@@ -81,7 +96,7 @@ class Diffuse {
         uDir: { value: 10 },
       };
       mat.vertexShader = mat.vertexShader.replace(
-        'void main() {',
+        "void main() {",
         `
             varying vec3 vPosition;
             void main(){
@@ -89,7 +104,7 @@ class Diffuse {
           `
       );
       mat.fragmentShader = mat.fragmentShader.replace(
-        'void main() {',
+        "void main() {",
         `
           uniform float uTime;
           uniform float uSpeed;
@@ -102,7 +117,7 @@ class Diffuse {
         `
       );
       mat.fragmentShader = mat.fragmentShader.replace(
-        '#include <output_fragment>',
+        "#include <output_fragment>",
         `
           #ifdef OPAQUE
           diffuseColor.a = 1.0;
@@ -144,7 +159,7 @@ class Diffuse {
         `
       );
     };
-    this.time.on('tick', (val) => {
+    this.time.on("tick", (val) => {
       if (!material) return;
       material.uniforms.uTime.value += val;
       material.uniforms.uTime.value > limit &&
@@ -152,7 +167,7 @@ class Diffuse {
     });
   }
 }
-class emiter {
+class emitter {
   constructor() {
     this.events = new Map();
   }
@@ -179,7 +194,7 @@ class emiter {
     this.on(e, s);
   }
 }
-class Timer extends emiter {
+class Timer extends emitter {
   constructor() {
     super();
     this.start = Date.now();
@@ -198,7 +213,7 @@ class Timer extends emiter {
     this.elapsed = this.current - this.start;
     const t = this.clock.getDelta(),
       s = this.clock.getElapsedTime();
-    if (this.emit('tick', t, s) && this.stop)
+    if (this.emit("tick", t, s) && this.stop)
       return window.cancelAnimationFrame(this.timer);
     this.timer = window.requestAnimationFrame(() => {
       this.tick();
@@ -206,21 +221,15 @@ class Timer extends emiter {
   }
   destroy() {
     this.stop = true;
-    this.off('tick');
+    this.off("tick");
   }
 }
 
-const geoProjection = d3
-  .geoMercator()
-  .center([0, 0])
-  .scale(120)
-  .translate([0, 0]);
-
-class N {
+class initShader {
   constructor(i, n) {
     this.shader = null;
     this.config = Object.assign(
-      { uColor1: 2781042, uColor2: 860197, size: 15, dir: 'x' },
+      { uColor1: 2781042, uColor2: 860197, size: 15, dir: "x" },
       n
     );
     this.init(i);
@@ -238,61 +247,61 @@ class N {
         uSize: { value: size },
       };
       r.vertexShader = r.vertexShader.replace(
-        'void main() {',
+        "void main() {",
         `
-          attribute float alpha;
-          varying vec3 vPosition;
-          varying float vAlpha;
-          void main() {
-            vAlpha = alpha;
-            vPosition = position;
-        `
+                attribute float alpha;
+                varying vec3 vPosition;
+                varying float vAlpha;
+                void main() {
+                  vAlpha = alpha;
+                  vPosition = position;
+              `
       );
       r.fragmentShader = r.fragmentShader.replace(
-        'void main() {',
+        "void main() {",
         `
-          varying vec3 vPosition;
-          varying float vAlpha;
-          uniform vec3 uColor1;
-          uniform vec3 uColor2;
-          uniform float uDir;
-          uniform float uSize;
-        
-          void main() {
-        `
+                varying vec3 vPosition;
+                varying float vAlpha;
+                uniform vec3 uColor1;
+                uniform vec3 uColor2;
+                uniform float uDir;
+                uniform float uSize;
+
+                void main() {
+              `
       );
       r.fragmentShader = r.fragmentShader.replace(
-        '#include <opaque_fragment>',
+        "#include <opaque_fragment>",
         `
-          #ifdef OPAQUE
-          diffuseColor.a = 1.0;
-          #endif
-          
-          // https://github.com/mrdoob/three.js/pull/22425
-          #ifdef USE_TRANSMISSION
-          diffuseColor.a *= transmissionAlpha + 0.1;
-          #endif
-          // vec3 gradient = mix(uColor1, uColor2, vPosition.x / 15.0); 
-          vec3 gradient = vec3(0.0,0.0,0.0);
-          if(uDir==1.0){
-            gradient = mix(uColor1, uColor2, vPosition.x/ uSize); 
-          }else if(uDir==2.0){
-            gradient = mix(uColor1, uColor2, vPosition.z/ uSize); 
-          }else if(uDir==3.0){
-            gradient = mix(uColor1, uColor2, vPosition.y/ uSize); 
-          }
-          outgoingLight = outgoingLight*gradient;
-          
-          
-          gl_FragColor = vec4( outgoingLight, diffuseColor.a  );
-          `
+              #ifdef OPAQUE
+              diffuseColor.a = 1.0;
+              #endif
+
+              // https://github.com/mrdoob/three.js/pull/22425
+              #ifdef USE_TRANSMISSION
+              diffuseColor.a *= transmissionAlpha + 0.1;
+              #endif
+              // vec3 gradient = mix(uColor1, uColor2, vPosition.x / 15.0);
+              vec3 gradient = vec3(0.0,0.0,0.0);
+              if(uDir==1.0){
+                gradient = mix(uColor1, uColor2, vPosition.x/ uSize);
+              }else if(uDir==2.0){
+                gradient = mix(uColor1, uColor2, vPosition.z/ uSize);
+              }else if(uDir==3.0){
+                gradient = mix(uColor1, uColor2, vPosition.y/ uSize);
+              }
+              outgoingLight = outgoingLight*gradient;
+
+
+              gl_FragColor = vec4( outgoingLight, diffuseColor.a  );
+              `
       );
     };
   }
 }
 
 export default {
-  name: '3dMap30',
+  name: "3dMap30",
   setup() {
     let baseEarth = null;
 
@@ -304,7 +313,7 @@ export default {
     const { requestData } = useFileLoader();
     const { transfromGeoJSON } = useConversionStandardData();
     const { getBoundingBox } = useCoord();
-    const { createCountryFlatLine } = useCountry();
+    // const { createCountryFlatLine } = useCountry();
     const { initCSS2DRender, create2DTag } = useCSS2DRender();
     const { createLightPillar } = useMapMarkedLightPillar({
       scaleFactor: 1.2,
@@ -313,19 +322,21 @@ export default {
     const { createSequenceFrame } = useSequenceFrameAnimate();
 
     const texture = new THREE.TextureLoader();
-    const textureMap = texture.load('/data/map/gz-map.jpg');
-    const texturefxMap = texture.load('/data/map/gz-map-fx.jpg');
+    // const textureMap = texture.load("/data/map/gz-map.jpg");
+    // const texturefxMap = texture.load("/data/map/gz-map-fx.jpg");
     const rotatingApertureTexture = texture.load(
-      '/data/map/rotatingAperture.png'
+      "/data/map/rotation-border-1.png"
     );
-    const rotatingPointTexture = texture.load('/data/map/rotating-point2.png');
-    const circlePoint = texture.load('/data/map/circle-point.png');
-    const sceneBg = texture.load('/data/map/ocean-blue-bg.png');
-
-    sceneBg.colorSpace = 'srgb';
-    sceneBg.wrapS = 1000;
-    sceneBg.wrapT = 1000;
-    sceneBg.repeat.set(1, 1);
+    const rotatingPointTexture = texture.load(
+      "/data/map/rotation-border-2.png"
+    );
+    const circlePoint = texture.load("/data/map/circle-point.png");
+    // const sceneBg = texture.load("/data/map/ocean-blue-bg.png");
+    //
+    // sceneBg.colorSpace = "srgb";
+    // sceneBg.wrapS = 1000;
+    // sceneBg.wrapT = 1000;
+    // sceneBg.repeat.set(1, 1);
 
     // 地形纹理
     // textureMap.wrapS = texturefxMap.wrapS = THREE.RepeatWrapping;
@@ -335,34 +346,34 @@ export default {
     // const scale = 0.128;
     // textureMap.repeat.set(scale, scale);
     // texturefxMap.repeat.set(scale, scale);
-    const topFaceMaterial = new THREE.MeshPhongMaterial({
-      // map: textureMap,
-      color: 0x3464a2,
-      combine: THREE.MultiplyOperation,
-      transparent: true,
-      opacity: 0.7,
-    });
-    const sideMaterial = new THREE.MeshLambertMaterial({
-      color: 0x3464a2,
-      transparent: true,
-      opacity: 0.7,
-    });
+    // const topFaceMaterial = new THREE.MeshPhongMaterial({
+    //   // map: textureMap,
+    //   color: 0x3464a2,
+    //   combine: THREE.MultiplyOperation,
+    //   transparent: true,
+    //   opacity: 0.7,
+    // });
+    // const sideMaterial = new THREE.MeshLambertMaterial({
+    //   color: 0x3464a2,
+    //   transparent: true,
+    //   opacity: 0.7,
+    // });
     const bottomZ = -0.2;
     // 初始化gui
     const initGui = () => {
       const gui = new GUI();
       const guiParams = {
-        topColor: '#b4eeea',
-        sideColor: '#123024',
+        topColor: "#b4eeea",
+        sideColor: "#123024",
         scale: 0.1,
       };
-      gui.addColor(guiParams, 'topColor').onChange((val) => {
+      gui.addColor(guiParams, "topColor").onChange((val) => {
         topFaceMaterial.color = new THREE.Color(val);
       });
-      gui.addColor(guiParams, 'sideColor').onChange((val) => {
+      gui.addColor(guiParams, "sideColor").onChange((val) => {
         sideMaterial.color = new THREE.Color(val);
       });
-      gui.add(guiParams, 'scale', 0, 1).onChange((val) => {
+      gui.add(guiParams, "scale", 0, 1).onChange((val) => {
         textureMap.repeat.set(val, val);
         texturefxMap.repeat.set(val, val);
       });
@@ -371,10 +382,13 @@ export default {
     const initRotatingAperture = (scene, width) => {
       let plane = new THREE.PlaneBufferGeometry(width, width);
       let material = new THREE.MeshBasicMaterial({
+        color: 4763647,
         map: rotatingApertureTexture,
         transparent: true,
-        opacity: 1,
+        opacity: 0.2,
+        depthWrite: false,
         depthTest: true,
+        blending: 2,
       });
       let mesh = new THREE.Mesh(plane, material);
       mesh.position.set(...centerXY, 0);
@@ -386,10 +400,13 @@ export default {
     const initRotatingPoint = (scene, width) => {
       let plane = new THREE.PlaneBufferGeometry(width, width);
       let material = new THREE.MeshBasicMaterial({
+        color: 4763647,
         map: rotatingPointTexture,
         transparent: true,
-        opacity: 1,
+        opacity: 0.4,
+        depthWrite: false,
         depthTest: true,
+        blending: 2,
       });
       let mesh = new THREE.Mesh(plane, material);
       mesh.position.set(...centerXY, bottomZ - 0.02);
@@ -401,11 +418,11 @@ export default {
     const initSceneBg = (scene, width) => {
       let plane = new THREE.PlaneBufferGeometry(width * 4, width * 4);
       let material = new THREE.MeshPhongMaterial({
-        // color: 0x061920,
+        color: 0x061920,
         map: sceneBg,
         transparent: true,
         opacity: 0.9,
-        // depthTest: true,
+        depthTest: true,
       });
 
       let mesh = new THREE.Mesh(plane, material);
@@ -443,7 +460,7 @@ export default {
       let particleArr = [];
       for (let i = 0; i < 16; i++) {
         const particle = createSequenceFrame({
-          image: './data/map/上升粒子1.png',
+          image: "./data/map/上升粒子1.png",
           width: 180,
           height: 189,
           frame: 9,
@@ -463,34 +480,7 @@ export default {
       scene.add(...particleArr);
       return particleArr;
     };
-    // 创建顶部底部边线
-    const initBorderLine = (data, mapGroup) => {
-      let lineTop = createCountryFlatLine(
-        data,
-        {
-          color: 0xffffff,
-          linewidth: 0.001,
-          transparent: true,
-          depthTest: false,
-        },
-        'Line2'
-      );
-      lineTop.position.z += 0.305;
-      let lineBottom = createCountryFlatLine(
-        data,
-        {
-          color: 0x61fbfd,
-          linewidth: 0.001,
-          // transparent: true,
-          depthTest: false,
-        },
-        'Line2'
-      );
-      lineBottom.position.z -= 0.1905;
-      //  添加边线
-      mapGroup.add(lineTop);
-      mapGroup.add(lineBottom);
-    };
+
     // 创建光柱
     const initLightPoint = (properties, mapGroup) => {
       if (!properties.centroid && !properties.center) {
@@ -509,14 +499,15 @@ export default {
         return false;
       }
       // 设置标签的显示内容和位置
-      var label = create2DTag('标签', 'map-32-label');
+      const label = create2DTag("标签", "map-32-label");
       scene.add(label);
       let labelCenter = properties.center; //centroid || properties.center
       label.show(properties.name, new THREE.Vector3(...labelCenter, 0.31));
     };
     onMounted(async () => {
+      const gui = new GUI();
       // 四川数据
-      let provinceData = await requestData('./data/map/四川省.json');
+      let provinceData = await requestData("./data/map/浙江省.json");
       provinceData = transfromGeoJSON(provinceData);
 
       class CurrentEarth extends BaseEarth {
@@ -534,13 +525,13 @@ export default {
             gridColor
           );
           helper.material = new THREE.MeshBasicMaterial({
-            color: '#3464a2',
+            color: "#3464a2",
             opacity: 0.5,
             transparent: true,
           });
 
           helper.rotateX(THREE.MathUtils.degToRad(90));
-          helper.position.set(...centerXY, bottomZ - 0.04);
+          helper.position.set(0, 0, bottomZ - 0.04);
           this.addObject(helper);
         }
         createPoint() {
@@ -549,16 +540,15 @@ export default {
           const positions = new Float32Array(row * col * 3);
           for (let d = 0; d < row; d++)
             for (let c = 0; c < col; c++) {
-              let w = (d / (row - 1)) * gridSize - gridSize / 2,
-                S = 0,
+              let S = 0,
                 v = (c / (col - 1)) * gridSize - gridSize / 2,
                 m = (d * col + c) * 3;
-              positions[m] = w;
+              positions[m] = (d / (row - 1)) * gridSize - gridSize / 2;
               positions[m + 1] = S;
               positions[m + 2] = v;
             }
           const geo = new THREE.BufferGeometry();
-          geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+          geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
           let sprite = new THREE.PointsMaterial({
             size: pointSize,
             sizeAttenuation: true,
@@ -567,7 +557,7 @@ export default {
           });
           const points = new THREE.Points(geo, sprite);
           points.rotateX(THREE.MathUtils.degToRad(90));
-          points.position.set(...centerXY, bottomZ - 0.04);
+          points.position.set(0, 0, bottomZ - 0.04);
           this.addObject(points);
           this.diffuseShader(sprite);
         }
@@ -607,7 +597,7 @@ export default {
           let mesh = new THREE.Mesh(geometry, mat);
           mesh.renderOrder = -1;
           mesh.rotateZ(-Math.PI / 2);
-          mesh.position.set(...centerXY, bottomZ - 0.04);
+          mesh.position.set(0, 0, bottomZ - 0.04);
           this.addObject(mesh);
         }
         diffuseShader(material) {
@@ -622,8 +612,8 @@ export default {
         }
         createChinaBlurLine() {
           let chinaLineGeo = new THREE.PlaneGeometry(147, 147);
-          const line = texture.load('/data/map/chinaBlurLine.png');
-          line.colorSpace = 'srgb';
+          const line = texture.load("/data/map/chinaBlurLine.png");
+          line.colorSpace = "srgb";
           line.wrapS = 1000;
           line.wrapT = 1000;
           line.generateMipmaps = false;
@@ -636,204 +626,354 @@ export default {
             opacity: 0.7,
           });
           const chinaLineMesh = new THREE.Mesh(chinaLineGeo, chinaLineMat);
-          // chinaLineMesh.rotateX(-Math.PI / 2);
-          chinaLineMesh.position.set(...centerXY, -0.5);
+          chinaLineMesh.position.set(-33.2, 4, -2);
           this.addObject(chinaLineMesh);
         }
         createFlyLine() {
-          this.flyLineGroup = new THREE.Group();
-          this.flyLineGroup.visible = true;
-          this.addObject(this.flyLineGroup);
-          const flyLineTexture = texture.load('/data/map/flyLine.png');
-          flyLineTexture.colorSpace = 'srgb';
-          flyLineTexture.wrapS = 1000;
-          flyLineTexture.wrapT = 1000;
-          flyLineTexture.repeat.set(1, 1);
-
-          const radius = 0.3;
-          const tubularSegments = 32;
-          const radialSegments = 8;
-          const closed = false;
-
-          let [r, c] = geoProjection(flyLineCenter);
-          console.log(r, c);
-          let vector = new THREE.Vector3(r, -c, 0);
-          const lineMat = new THREE.MeshBasicMaterial({
-            map: flyLineTexture,
-            alphaMap: flyLineTexture,
-            color: 2781042,
-            transparent: true,
-            fog: false,
-            opacity: true,
-            depthTest: false,
-            blending: 2,
-          });
-          this.time.on('tick', () => {
-            flyLineTexture.offset.x -= 0.006;
-          });
+          let arr = [];
           regionData
             .filter((size, n) => n < 7)
-            .map((item) => {
-              if (item?.centroid) {
-                let [num1, num2] = geoProjection(item.centroid);
-                const vec1 = new THREE.Vector3(num1, -num2, 0);
-                const vec2 = new THREE.Vector3();
-                vec2.addVectors(vector, vec1).multiplyScalar(0.5);
-                vec2.setZ(3);
-                const quadra = new THREE.QuadraticBezierCurve3(
-                  vector,
-                  vec2,
-                  vec1
-                );
-                const tube = new THREE.TubeGeometry(
-                  quadra,
-                  tubularSegments,
-                  radius,
-                  radialSegments,
-                  closed
-                );
-                const mesh = new THREE.Mesh(tube, lineMat);
-                // mesh.rotation.x = -Math.PI / 2;
-                mesh.position.set(...centerXY);
-                mesh.renderOrder = 21;
-                this.flyLineGroup.add(mesh);
-              }
+            .forEach((item) => {
+              arr.push({
+                begin: flyLineCenter,
+                end: item?.centroid || item.center,
+                offset: 0.2,
+                height: 5,
+              });
             });
-          this.createFlyLineFocus();
+          new FlyLine(baseEarth.scene, arr);
         }
-        createFlyLineFocus() {
-          this.flyLineFocusGroup = new THREE.Group();
-          this.flyLineFocusGroup.visible = true;
-          // this.flyLineFocusGroup.rotation.x = -Math.PI / 2;
-          let [num1, num2] = geoProjection(flyLineCenter);
-          this.flyLineFocusGroup.position.set(num1, 0.942, num2);
-          this.addObject(this.flyLineFocusGroup);
-          const focusTexture = texture.load(flyFocus);
-          const focusGeo = new THREE.PlaneGeometry(1, 1);
-          const focusMat = new THREE.MeshBasicMaterial({
+        async createProvince() {
+          let provinceData = await requestData("data/map/浙江省.json");
+          provinceData = transfromGeoJSON(provinceData);
+          let [lambertMat, sideMat] = this.createProvinceMaterial();
+
+          let zhejiang = new ProvinceSide(this.time, {
+            center: centerXY,
+            position: new THREE.Vector3(0, 0, 0.11),
+            data: provinceData,
+            depth: 0.5,
+            topFaceMaterial: lambertMat,
+            sideMaterial: sideMat,
+            renderOrder: 9,
+          });
+          let defaultMaterial = new THREE.MeshStandardMaterial({
             color: 16777215,
-            map: focusTexture,
-            alphaMap: focusTexture,
+            transparent: true,
+            opacity: 0.5,
+          });
+          new initShader(defaultMaterial, {
+            uColor1: 2780818,
+            uColor2: 1058614,
+          });
+          this.defaultMaterial = defaultMaterial;
+          // this.defaultLightMaterial = this.defaultMaterial.clone();
+          // this.defaultLightMaterial.emissive.setHex(725293);
+          // this.defaultLightMaterial.emissiveIntensity = 3.5;
+
+          let zhejiangTop = new Country(this, {
+            center: centerXY,
+            position: new THREE.Vector3(0, 0, 0.72),
+            data: provinceData,
+            material: defaultMaterial,
+            renderOrder: 2,
+          });
+          this.zhejiangLineMaterial = new THREE.LineBasicMaterial({
+            color: 16777215,
+            opacity: 0,
             transparent: true,
             fog: false,
-            depthTest: false,
-            blending: 2,
           });
-          const focusMesh = new THREE.Mesh(focusGeo, focusMat);
-          focusMesh.scale.set(0, 0, 0);
-          const cloneMesh = focusMesh.clone();
-          cloneMesh.material = focusMat.clone();
-          this.flyLineFocusGroup.add(focusMesh, cloneMesh);
-
-          gsap.to(focusMesh.material, {
-            opacity: 0,
-            repeat: -1,
-            yoyoEase: false,
-            duration: 1,
+          let zhejiangLine = new Line({
+            center: centerXY,
+            data: provinceData,
+            material: this.zhejiangLineMaterial,
+            renderOrder: 3,
           });
-          gsap.to(focusMesh.scale, {
-            x: 1.5,
-            y: 1.5,
-            z: 1.5,
-            repeat: -1,
-            yoyoEase: false,
-            duration: 1,
-          });
-          gsap.to(cloneMesh.material, {
-            delay: 0.5,
-            opacity: 0,
-            repeat: -1,
-            yoyoEase: false,
-            duration: 1,
-          });
-          gsap.to(cloneMesh.scale, {
-            delay: 0.5,
-            x: 1.5,
-            y: 1.5,
-            z: 1.5,
-            repeat: -1,
-            yoyoEase: false,
-            duration: 1,
-          });
-          console.log('scene:', this.scene);
+          zhejiangLine.lineGroup.position.z += 0.73;
+          return { zhejiang, zhejiangTop, zhejiangLine };
         }
-        createBar() {
-          let _this = this;
-          const regionList = regionData
-            .sort((item1, item2) => item1.value - item2.value)
-            .filter((item, idx) => idx < 7);
-          const group = new THREE.Group(),
-            e = 0.7,
-            i = 4 * e,
-            r = regionList[0].value;
-          this.allBar = [];
-          this.allBarMaterial = [];
-          this.allGuangquan = [];
-          this.allProvinceLabel = [];
-          regionList.map((item, index) => {
-            let size = i * (item.value / r),
-              mat = new THREE.MeshBasicMaterial({
-                color: 16777215,
-                transparent: true,
-                opacity: 0,
-                depthTest: false,
-                fog: false,
-              });
-            new N(mat, {
-              uColor1: index > 3 ? 16506760 : 5291006,
-              uColor2: index > 3 ? 16776948 : 7863285,
-              size: size,
-              dir: 'y',
-            });
-            const boxGeo = new THREE.BoxGeometry(0.1 * e, 0.1 * e, size);
-            boxGeo.translate(0, 0, size / 2);
-            const box = new THREE.Mesh(boxGeo, mat);
-            box.renderOrder = 5;
-            let cloneBox = box;
-            let [g, m] = geoProjection(item.centroid);
-            cloneBox.position.set(g, -m, 0.95);
-            cloneBox.scale.set(1, 1, 0);
-            // let v = this.createQuan(new y(g, 0.94, m), index)
-            this.createHUIGUANG(size, index > 3 ? 16776948 : 7863285);
-            group.add(cloneBox);
-            // group.rotation.x = -Math.PI / 2;
-            // let label = createLabel(
-            //   item,
-            //   index,
-            //   new THREE.Vector3(g, -m, 1.6 + size)
-            // );
-            this.allBar.push(cloneBox);
-            this.allBarMaterial.push(mat);
-            // this.allGuangquan.push(v);
-            // this.allProvinceLabel.push(label);
+        createProvinceMaterial() {
+          let lambertMat = new MeshLambertMaterial({
+            color: 16777215,
+            transparent: true,
+            opacity: 0,
+            fog: false,
+            side: 2,
           });
-          this.addObject(group);
-          function createLabel(item, index, size) {
-            let label3d = _this.label3d.create('', 'provinces-label', true);
-            label3d.init(
-              `<div class="provinces-label ${index > 4 ? 'yellow' : ''}">
-                <div class="provinces-label-wrap">
-                  <div class="number"><span class="value">${
-                    item.value
-                  }</span><span class="unit">万人</span></div>
-                  <div class="name">
-                    <span class="zh">${item.name}</span>
-                    <span class="en">${item.name}</span>
-                  </div>
-                  <div class="no">${index + 1}</div>
-                </div>
-              </div>`,
-              size
+          lambertMat.onBeforeCompile = (e) => {
+            e.uniforms = {
+              ...e.uniforms,
+              uColor1: { value: new THREE.Color(2780818) },
+              uColor2: { value: new THREE.Color(1058614) },
+            };
+            e.vertexShader = e.vertexShader.replace(
+              "void main() {",
+              `
+              attribute float alpha;
+              varying vec3 vPosition;
+              varying float vAlpha;
+              void main() {
+                vAlpha = alpha;
+                vPosition = position;
+            `
             );
-            _this.label3d.setLabelStyle(label3d, 0.01, 'x');
-            label3d.setParent(_this.labelGroup);
-          }
+            e.fragmentShader = e.fragmentShader.replace(
+              "void main() {",
+              `
+              varying vec3 vPosition;
+              varying float vAlpha;
+              uniform vec3 uColor1;
+              uniform vec3 uColor2;
+
+              void main() {
+            `
+            );
+            e.fragmentShader = e.fragmentShader.replace(
+              "#include <opaque_fragment>",
+              `
+              #ifdef OPAQUE
+              diffuseColor.a = 1.0;
+              #endif
+
+              // https://github.com/mrdoob/three.js/pull/22425
+              #ifdef USE_TRANSMISSION
+              diffuseColor.a *= transmissionAlpha + 0.1;
+              #endif
+              vec3 gradient = mix(uColor1, uColor2, vPosition.x/15.78); // 15.78
+
+              outgoingLight = outgoingLight*gradient;
+              float topAlpha = 0.5;
+              if(vPosition.z>0.3){
+                diffuseColor.a *= topAlpha;
+              }
+
+              gl_FragColor = vec4( outgoingLight, diffuseColor.a  );
+              `
+            );
+          };
+          let sideTex = texture.load("data/map/side.png");
+          sideTex.wrapS = 1000;
+          sideTex.wrapT = 1000;
+          sideTex.repeat.set(1, 1.5);
+          sideTex.offset.y += 0.065;
+          let sideMat = new THREE.MeshStandardMaterial({
+            color: 16777215,
+            map: sideTex,
+            fog: false,
+            opacity: 0,
+            side: 2,
+          });
+          this.time.on("tick", () => {
+            sideTex.offset.y += 0.005;
+          });
+          sideMat.onBeforeCompile = (e) => {
+            e.uniforms = {
+              ...e.uniforms,
+              uColor1: { value: new THREE.Color(2780818) },
+              uColor2: { value: new THREE.Color(2780818) },
+            };
+            e.vertexShader = e.vertexShader.replace(
+              "void main() {",
+              `
+                  attribute float alpha;
+                  varying vec3 vPosition;
+                  varying float vAlpha;
+                  void main() {
+                    vAlpha = alpha;
+                    vPosition = position;
+                `
+            );
+            e.fragmentShader = e.fragmentShader.replace(
+              "void main() {",
+              `
+                  varying vec3 vPosition;
+                  varying float vAlpha;
+                  uniform vec3 uColor1;
+                  uniform vec3 uColor2;
+
+                  void main() {
+                `
+            );
+            e.fragmentShader = e.fragmentShader.replace(
+              "#include <opaque_fragment>",
+              `
+                    #ifdef OPAQUE
+                    diffuseColor.a = 1.0;
+                    #endif
+
+                    // https://github.com/mrdoob/three.js/pull/22425
+                    #ifdef USE_TRANSMISSION
+                    diffuseColor.a *= transmissionAlpha + 0.1;
+                    #endif
+                    vec3 gradient = mix(uColor1, uColor2, vPosition.z/1.2);
+
+                    outgoingLight = outgoingLight*gradient;
+
+
+                    gl_FragColor = vec4( outgoingLight, diffuseColor.a  );
+                    `
+            );
+          };
+          return [lambertMat, sideMat];
+        }
+        async createChina() {
+          let jsonData = await requestData("./data/map/中华人民共和国.json");
+          let chinaJson = transfromGeoJSON(jsonData);
+          let china = new Country(this, {
+            data: chinaJson,
+            center: centerXY,
+            merge: false,
+            material: new MeshLambertMaterial({
+              color: "rgb(46,66,103)",
+              transparent: true,
+              opacity: 1,
+            }),
+            renderOrder: 2,
+          });
+          let chinaTopLine = new Line({
+            center: centerXY,
+            visibleProvince: "广东省",
+            data: chinaJson,
+            material: new LineBasicMaterial({ color: '#3f5d75' }),
+            renderOrder: 3,
+          });
+          chinaTopLine.lineGroup.position.z += 0.2;
+          let chinaBottomLine = new Line({
+            center: centerXY,
+            data: chinaJson,
+            material: new LineBasicMaterial({
+              color: 4162253,
+              transparent: true,
+              opacity: 0.4,
+            }),
+            renderOrder: 3,
+          });
+          chinaBottomLine.lineGroup.position.z -= 0.59;
+          return { china, chinaTopLine, chinaBottomLine };
+        }
+        async createModel() {
+          let modelGroup = new THREE.Group();
+          // 创建省份
+          this.focusMapGroup = new THREE.Group();
+          let { zhejiang, zhejiangTop, zhejiangLine } =
+            await this.createProvince();
+
+          let { china, chinaTopLine } = await this.createChina();
+
+          china.setParent(modelGroup);
+          zhejiang.setParent(modelGroup);
+          zhejiangTop.setParent(modelGroup);
+          chinaTopLine.setParent(modelGroup);
+          zhejiangLine.setParent(modelGroup);
+
+          this.focusMapGroup.position.set(0, 0, -0.01);
+          this.focusMapGroup.scale.set(1, 1, 0);
+          modelGroup.add(this.focusMapGroup);
+          modelGroup.position.set(0, 0, 0.2);
+          this.scene.add(modelGroup);
+        }
+        createPointLight(opt) {
+          const pointLight = new PointLight(
+            opt.color,
+            opt.intensity,
+            opt.distance,
+            1
+          );
+          pointLight.position.set(opt.x, opt.y, opt.z);
+          this.scene.add(pointLight);
+          const helper = new PointLightHelper(pointLight, 1);
+          this.scene.add(helper);
+
+          const point = gui.addFolder("Point" + Math.random());
+          point.addColor(opt, "color");
+          point.add(opt, "intensity", 1, 100, 1);
+          point.add(opt, "distance", 100, 2000, 10);
+          point.add(opt, "x", -30, 30, 1);
+          point.add(opt, "y", -30, 30, 1);
+          point.add(opt, "z", -30, 30, 1);
+          point.onChange(({ object: i }) => {
+            pointLight.color = new THREE.Color(i.color);
+            pointLight.distance = i.distance;
+            pointLight.intensity = i.intensity;
+            pointLight.position.set(i.x, i.y, i.z);
+            helper.update();
+          });
+        }
+        createDirectionalLight(opt) {
+          let directLight = new DirectionalLight(opt.color, opt.intensity);
+          directLight.position.set(opt.x, opt.y, opt.z);
+          directLight.castShadow = true;
+          directLight.shadow.radius = 20;
+          directLight.shadow.mapSize.width = 1024;
+          directLight.shadow.mapSize.height = 1024;
+          const helper = new DirectionalLightHelper(directLight, 10);
+          this.scene.add(directLight, helper);
+
+          const light = gui.addFolder("directLight");
+          light.add(directLight.position, "x", -30, 100, 1);
+          light.add(directLight.position, "y", -30, 100, 1);
+          light.add(directLight.position, "z", -30, 100, 1);
+          light.add(directLight, "intensity", 1, 100, 1);
+          light.onChange(() => {
+            helper.update();
+          });
+        }
+        initEnvironment() {
+          let ambLight = new AmbientLight("#021031", 1);
+          this.scene.add(ambLight);
+
+          const environment = gui.addFolder("Environment");
+          environment.add(ambLight, "intensity", 1, 10, 1);
+
+          this.createDirectionalLight({
+            color: 16777215,
+            intensity: 5,
+            x: -30,
+            y: 6,
+            z: -8,
+          });
+
+          this.createPointLight({
+            color: "#021031",
+            intensity: 5,
+            distance: 1e4,
+            x: -9,
+            y: 3,
+            z: -3,
+          });
+          this.createPointLight({
+            color: "#021031",
+            intensity: 5,
+            distance: 1e4,
+            x: 0,
+            y: 2,
+            z: 5,
+          });
+
+          // this.scene.fog = new Fog(1058614, 1, 50);
+          this.scene.background = new Color(1058614);
+        }
+        createFloor() {
+          let plan = new PlaneGeometry(20, 20);
+          const texture = new TextureLoader().load(
+            "/data/map/ocean-blue-bg.png"
+          );
+          texture.colorSpace = "srgb";
+          texture.wrapS = 1000;
+          texture.wrapT = 1000;
+          texture.repeat.set(1, 1);
+          let mat = new MeshBasicMaterial({ map: texture, opacity: 1 });
+          let ocean = new Mesh(plan, mat);
+          // ocean.rotateX(-Math.PI / 2);
+          ocean.position.set(0, -0.7, 0);
+          this.scene.add(ocean);
         }
         createHUIGUANG(width, color) {
           let planGeo = new THREE.PlaneGeometry(0.35, width);
           planGeo.translate(0, width / 2, 0);
-          const huiguangTex = texture.load('/data/map/huiguang.png');
-          huiguangTex.colorSpace = 'srgb';
+          const huiguangTex = texture.load("/data/map/huiguang.png");
+          huiguangTex.colorSpace = "srgb";
           huiguangTex.wrapS = 1000;
           huiguangTex.wrapT = 1000;
           let huiguangMat = new THREE.MeshBasicMaterial({
@@ -856,19 +996,19 @@ export default {
           let { width, height } = this.options;
           let rate = width / height;
           // 设置45°的透视相机,更符合人眼观察
-          this.camera = new THREE.PerspectiveCamera(45, rate, 0.001, 90000000);
+          this.camera = new THREE.PerspectiveCamera(45, rate, 0.001, 9000000);
           this.camera.up.set(0, 0, 1);
           // 贵州
           // this.camera.position.set(105.96420078859111, 20.405756412693812, 5.27483892390678) //相机在Three.js坐标系中的位置
           // 四川
           this.camera.position.set(
-            102.97777217804006,
-            17.660260562607277,
-            8.029548316292933
+            -82.990152163077308,
+            -43.767695123014105,
+            39.28228164159694
           ); //相机在Three.js坐标系中的位置
-          this.camera.lookAt(...centerXY, 0);
+          this.camera.lookAt(0, 0, 0);
         }
-        initModel() {
+        async initModel() {
           try {
             // 创建组
             this.mapGroup = new THREE.Group();
@@ -876,51 +1016,15 @@ export default {
             this.css2dRender = initCSS2DRender(this.options, this.container);
 
             provinceData.features.forEach((elem, index) => {
-              // 定一个省份对象
-              const province = new THREE.Object3D();
-              // 坐标
-              const coordinates = elem.geometry.coordinates;
               // city 属性
               const properties = elem.properties;
 
-              // 循环坐标
-              coordinates.forEach((multiPolygon) => {
-                multiPolygon.forEach((polygon) => {
-                  const shape = new THREE.Shape();
-                  // 绘制shape
-                  for (let i = 0; i < polygon.length; i++) {
-                    let [x, y] = polygon[i];
-                    if (i === 0) {
-                      shape.moveTo(x, y);
-                    }
-                    shape.lineTo(x, y);
-                  }
-                  // 拉伸设置
-                  const extrudeSettings = {
-                    depth: 0.2,
-                    bevelEnabled: true,
-                    bevelSegments: 1,
-                    bevelThickness: 0.1,
-                  };
-                  const geometry = new THREE.ExtrudeGeometry(
-                    shape,
-                    extrudeSettings
-                  );
-                  // const mesh = new THREE.Mesh(geometry, [
-                  //   topFaceMaterial,
-                  //   sideMaterial,
-                  // ]);
-                  const mesh = new THREE.Mesh(geometry, sideMaterial);
-                  province.add(mesh);
-                });
-              });
-              this.mapGroup.add(province);
               // 创建标点和标签
               initLightPoint(properties, this.mapGroup);
-              initLabel(properties, this.scene);
+              // initLabel(properties, this.scene);
             });
             // 创建上下边框
-            initBorderLine(provinceData, this.mapGroup);
+            // initBorderLine(provinceData, this.mapGroup);
 
             let earthGroupBound = getBoundingBox(this.mapGroup);
             centerXY = [earthGroupBound.center.x, earthGroupBound.center.y];
@@ -930,12 +1034,12 @@ export default {
             this.rotatingApertureMesh = initRotatingAperture(this.scene, width);
             this.rotatingPointMesh = initRotatingPoint(this.scene, width - 2);
             initCirclePoint(this.scene, width);
-            initSceneBg(this.scene, width);
+            // initSceneBg(this.scene, width);
 
             // 将组添加到场景中
             this.scene.add(this.mapGroup);
             this.particleArr = initParticle(this.scene, earthGroupBound);
-            initGui();
+            // initGui();
           } catch (error) {
             console.log(error);
           }
@@ -944,25 +1048,28 @@ export default {
         destroy() {}
         initControls() {
           super.initControls();
-          this.controls.target = new THREE.Vector3(...centerXY, 0);
+          this.controls.target = new THREE.Vector3(0, 0, 0);
         }
-        initLight() {
-          //   平行光1
-          let directionalLight1 = new THREE.DirectionalLight(0x7af4ff, 1);
-          directionalLight1.position.set(...centerXY, 30);
-          //   平行光2
-          let directionalLight2 = new THREE.DirectionalLight(0x7af4ff, 1);
-          directionalLight2.position.set(...centerXY, 30);
-          // 环境光
-          let ambientLight = new THREE.AmbientLight(0x7af4ff, 1);
-          // 将光源添加到场景中
-          this.addObject(directionalLight1);
-          this.addObject(directionalLight2);
-          this.addObject(ambientLight);
-        }
+        // initLight() {
+        //   //   平行光1
+        //   let directionalLight1 = new THREE.DirectionalLight(0x7af4ff, 1);
+        //   directionalLight1.position.set(...centerXY, 30);
+        //   //   平行光2
+        //   let directionalLight2 = new THREE.DirectionalLight(0x7af4ff, 1);
+        //   directionalLight2.position.set(...centerXY, 30);
+        //   // 环境光
+        //   let ambientLight = new THREE.AmbientLight(0x7af4ff, 1);
+        //   // 将光源添加到场景中
+        //   this.addObject(directionalLight1);
+        //   this.addObject(directionalLight2);
+        //   this.addObject(ambientLight);
+        // }
         initRenderer() {
           super.initRenderer();
-          // this.renderer.outputEncoding = THREE.sRGBEncoding
+          this.renderer.outputEncoding = THREE.sRGBEncoding;
+          // this.renderer.setClearColor(pointColor, 1.0);
+          console.log(this.renderer);
+          this.renderer.shadowMap.enabled = false;
         }
         loop() {
           this.animationStop = window.requestAnimationFrame(() => {
@@ -978,25 +1085,25 @@ export default {
           // 统计更新
           if (this.options.statsVisibel) this.stats.update();
           if (this.rotatingApertureMesh) {
-            this.rotatingApertureMesh.rotation.z += 0.0005;
+            this.rotatingApertureMesh.rotation.z += 0.001;
           }
           if (this.rotatingPointMesh) {
-            this.rotatingPointMesh.rotation.z -= 0.0005;
+            this.rotatingPointMesh.rotation.z -= 0.005;
           }
           // 渲染标签
           if (this.css2dRender) {
             this.css2dRender.render(this.scene, this.camera);
           }
           // 粒子上升
-          if (this.particleArr.length) {
-            for (let i = 0; i < this.particleArr.length; i++) {
-              this.particleArr[i].updateSequenceFrame();
-              this.particleArr[i].position.z += 0.01;
-              if (this.particleArr[i].position.z >= 6) {
-                this.particleArr[i].position.z = -6;
-              }
-            }
-          }
+          // if (this.particleArr.length) {
+          //   for (let i = 0; i < this.particleArr.length; i++) {
+          //     this.particleArr[i].updateSequenceFrame();
+          //     this.particleArr[i].position.z += 0.01;
+          //     if (this.particleArr[i].position.z >= 6) {
+          //       this.particleArr[i].position.z = -6;
+          //     }
+          //   }
+          // }
           TWEEN.update();
         }
         resize() {
@@ -1011,7 +1118,7 @@ export default {
         }
       }
       baseEarth = new CurrentEarth({
-        container: '#app-32-map',
+        container: "#app-32-map",
         axesVisibel: true,
         controls: {
           enableDamping: true, // 阻尼
@@ -1026,12 +1133,15 @@ export default {
       baseEarth.createShapes();
       baseEarth.createChinaBlurLine();
       baseEarth.createFlyLine();
-      baseEarth.createBar();
+      baseEarth.createModel();
+      baseEarth.initEnvironment();
+      // baseEarth.createFloor();
+      // baseEarth.createHUIGUANG(10, 16776948);
 
-      window.addEventListener('resize', resize);
+      window.addEventListener("resize", resize);
     });
     onBeforeUnmount(() => {
-      window.removeEventListener('resize', resize);
+      window.removeEventListener("resize", resize);
     });
   },
 };

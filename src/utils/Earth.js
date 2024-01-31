@@ -1,8 +1,8 @@
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import Stats from 'three/examples/jsm/libs/stats.module';
-import TWEEN from '@tweenjs/tween.js';
-import { deepMerge, isType } from '@/utils';
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import Stats from "three/examples/jsm/libs/stats.module";
+import TWEEN from "@tweenjs/tween.js";
+import { deepMerge, isType } from "@/utils";
 
 export default class Earth3d {
   constructor(options = {}) {
@@ -42,12 +42,11 @@ export default class Earth3d {
     this.initCamera();
     this.initModel();
     this.initRenderer();
-    this.initLight();
+    // this.initLight();
     this.initAxes();
     this.initControls();
-    let gl = this.renderer.domElement.getContext('webgl');
-    gl && gl.getExtension('WEBGL_lose_context').loseContext();
-    console.log(this.renderer.info);
+    let gl = this.renderer.domElement.getContext("webgl");
+    gl && gl.getExtension("WEBGL_lose_context").loseContext();
   }
   async initModel() {}
 
@@ -150,7 +149,7 @@ export default class Earth3d {
    * @param {*} object  {} []
    */
   addObject(object) {
-    if (isType('Array', object)) {
+    if (isType("Array", object)) {
       this.scene.add(...object);
     } else {
       this.scene.add(object);
@@ -161,7 +160,7 @@ export default class Earth3d {
    * @param {*} object {} []
    */
   removeObject(object) {
-    if (isType('Array', object)) {
+    if (isType("Array", object)) {
       object.map((item) => {
         item.geometry.dispose();
       });

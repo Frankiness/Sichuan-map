@@ -1,5 +1,5 @@
-import { ref } from 'vue';
-import * as THREE from 'three';
+import { ref } from "vue";
+import * as THREE from "three";
 const useFileLoader = () => {
   // 进度
   const progress = ref(0);
