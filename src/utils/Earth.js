@@ -1,8 +1,9 @@
-import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import Stats from "three/examples/jsm/libs/stats.module";
 import TWEEN from "@tweenjs/tween.js";
 import { deepMerge, isType } from "@/utils";
+import { CSS3DRenderer } from "three/examples/jsm/renderers/CSS3DRenderer";
+import { AxesHelper, PerspectiveCamera, Scene, WebGLRenderer } from "three";
 
 export default class Earth3d {
   constructor(options = {}) {
@@ -27,7 +28,7 @@ export default class Earth3d {
     this.container = document.querySelector(this.options.container);
     this.options.width = this.container.offsetWidth;
     this.options.height = this.container.offsetHeight;
-    this.scene = new THREE.Scene(); // 场景
+    this.scene = new Scene(); // 场景
     this.camera = null; // 相机
     this.renderer = null; // 渲染器
     this.mesh = null; // 网格
@@ -40,15 +41,12 @@ export default class Earth3d {
   init() {
     this.initStats();
     this.initCamera();
-    this.initModel();
     this.initRenderer();
-    // this.initLight();
     this.initAxes();
     this.initControls();
     let gl = this.renderer.domElement.getContext("webgl");
     gl && gl.getExtension("WEBGL_lose_context").loseContext();
   }
-  async initModel() {}
 
   /**
    * 运行
@@ -74,10 +72,8 @@ export default class Earth3d {
     let { width, height } = this.options;
     let rate = width / height;
     // 设置45°的透视相机,更符合人眼观察
-    this.camera = new THREE.PerspectiveCamera(45, rate, 0.1, 1500);
-    // this.camera.position.set(-428.88, 861.97, -1438.0)
+    this.camera = new PerspectiveCamera(45, rate, 0.1, 1500);
     this.camera.position.set(270.27, 173.24, 257.54);
-    // this.camera.position.set(-102, 205, -342)
 
     this.camera.lookAt(0, 0, 0);
   }
@@ -86,7 +82,7 @@ export default class Earth3d {
    */
   initRenderer() {
     let { width, height, bgColor } = this.options;
-    let renderer = new THREE.WebGLRenderer({
+    let renderer = new WebGLRenderer({
       antialias: true, // 锯齿
     });
     // 设置canvas的分辨率
@@ -98,20 +94,9 @@ export default class Earth3d {
     // 插入到dom中
     this.container.appendChild(renderer.domElement);
     this.renderer = renderer;
-  }
-  initLight() {
-    //   平行光1
-    let directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.6);
-    directionalLight1.position.set(400, 200, 200);
-    //   平行光2
-    let directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.6);
-    directionalLight2.position.set(-400, -200, -300);
-    // 环境光
-    let ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    // 将光源添加到场景中
-    this.addObject(directionalLight1);
-    this.addObject(directionalLight2);
-    this.addObject(ambientLight);
+
+    this.render3d = new CSS3DRenderer();
+    this.render3d.setSize(width, height);
   }
 
   initStats() {
@@ -136,7 +121,7 @@ export default class Earth3d {
   }
   initAxes() {
     if (!this.options.axesVisibel) return false;
-    var axes = new THREE.AxesHelper(this.options.axesHelperSize);
+    const axes = new AxesHelper(this.options.axesHelperSize);
     this.addObject(axes);
   }
 

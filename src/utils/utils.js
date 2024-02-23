@@ -1,13 +1,17 @@
-import * as THREE from "three";
 import * as d3 from "d3";
 import {
+  Clock,
   Color,
+  ExtrudeGeometry,
   Group,
   Mesh,
-  MeshBasicMaterial, MeshLambertMaterial, MeshStandardMaterial,
+  MeshBasicMaterial,
+  MeshLambertMaterial,
   Object3D,
+  PlaneGeometry,
   Shape,
   ShapeGeometry,
+  TextureLoader,
   Vector2,
   Vector3,
 } from "three";
@@ -26,24 +30,24 @@ export const initCoord = (n) => {
 
 export class ProvinceSide {
   constructor(time, r = {}) {
-    this.mapGroup = new THREE.Group();
+    this.mapGroup = new Group();
     this.time = time;
     this.coordinates = [];
     this.config = Object.assign(
       {
-        position: new THREE.Vector3(0, 0, 0),
-        center: new THREE.Vector2(0, 0),
+        position: new Vector3(0, 0, 0),
+        center: new Vector2(0, 0),
         data: "",
         renderOrder: 1,
-        topFaceMaterial: new THREE.MeshBasicMaterial({
+        topFaceMaterial: new MeshBasicMaterial({
           color: "rgb(92,187,246)",
           transparent: true,
-          opacity: 1,
+          opacity: 0.5,
         }),
-        sideMaterial: new THREE.MeshBasicMaterial({
-          color: 464171,
+        sideMaterial: new MeshBasicMaterial({
+          color: "rgba(38,83,134,0.6)",
           transparent: true,
-          opacity: 1,
+          opacity: 0.5,
         }),
         depth: 0.1,
       },
@@ -54,16 +58,9 @@ export class ProvinceSide {
     let res = initCoord(this.config.data);
     this.create(res);
   }
-  geoProjection(e) {
-    return d3
-      .geoMercator()
-      .center(this.config.center)
-      .scale(120)
-      .translate([0, 0])(e);
-  }
   create(geoJson) {
     geoJson.features.forEach((item) => {
-      const objects = new THREE.Object3D();
+      const objects = new Object3D();
       let { name, center = [], centroid = [] } = item.properties;
       this.coordinates.push({ name, center, centroid });
       const settings = {
@@ -72,19 +69,20 @@ export class ProvinceSide {
         bevelSegments: 1,
         bevelThickness: 0.1,
       };
-      // let extrudeMat = [this.config.topFaceMaterial, this.config.sideMaterial];
+
       let extrudeMat = this.createMaterial();
+
       item.geometry.coordinates.forEach((u) => {
         u.forEach((s, m) => {
-          const shapes = new THREE.Shape();
+          const shapes = new Shape();
           for (let l = 0; l < s.length; l++) {
-            if (!s[l][0] || !s[l][1]) return !1;
-            const [b, C] = this.geoProjection(s[l]);
+            if (!s[l][0] || !s[l][1]) return false;
+            const [b, C] = geoProjection(s[l]);
             l === 0 && shapes.moveTo(b, -C);
             shapes.lineTo(b, -C);
           }
-          const extrude = new THREE.ExtrudeGeometry(shapes, settings);
-          const mesh = new THREE.Mesh(extrude, extrudeMat);
+          const extrude = new ExtrudeGeometry(shapes, settings);
+          const mesh = new Mesh(extrude, extrudeMat);
           objects.add(mesh);
         });
       });
@@ -93,7 +91,7 @@ export class ProvinceSide {
   }
   createMaterial() {
     let topMat = new MeshLambertMaterial({
-      color: 16777215,
+      color: "#fff",
       transparent: true,
       opacity: 1,
       fog: false,
@@ -102,8 +100,8 @@ export class ProvinceSide {
     topMat.onBeforeCompile = (t) => {
       t.uniforms = {
         ...t.uniforms,
-        uColor1: { value: new Color(2781042) },
-        uColor2: { value: new Color(860197) },
+        uColor1: { value: new Color("#2a6f72") },
+        uColor2: { value: new Color("#1c4f64") },
       };
       t.vertexShader = t.vertexShader.replace(
         "void main() {",
@@ -150,7 +148,7 @@ export class ProvinceSide {
       `
       );
     };
-    const textureLoader = new THREE.TextureLoader();
+    const textureLoader = new TextureLoader();
     let texture = textureLoader.load("data/map/side.png");
     texture.wrapS = 1000;
     texture.wrapT = 1000;
@@ -169,8 +167,8 @@ export class ProvinceSide {
     sideMat.onBeforeCompile = (t) => {
       t.uniforms = {
         ...t.uniforms,
-        uColor1: { value: new Color(2781042) },
-        uColor2: { value: new Color(2781042) },
+        uColor1: { value: new Color("#2a6f72") },
+        uColor2: { value: new Color("#2a6f72") },
       };
       t.vertexShader = t.vertexShader.replace(
         "void main() {",
@@ -225,7 +223,7 @@ export class ProvinceSide {
 }
 
 export class Country {
-  constructor({}, opt = {}) {
+  constructor(opt = {}) {
     this.mapGroup = new Group();
     this.coordinates = [];
     this.config = Object.assign(
@@ -236,7 +234,7 @@ export class Country {
         renderOrder: 1,
         merge: false,
         material: new MeshBasicMaterial({
-          color: 1582651,
+          color: "#18263b",
           transparent: true,
           opacity: 1,
         }),
@@ -247,16 +245,9 @@ export class Country {
     let coord = initCoord(this.config.data);
     this.create(coord);
   }
-  geoProjection(e) {
-    return d3
-      .geoMercator()
-      .center(this.config.center)
-      .scale(120)
-      .translate([0, 0])(e);
-  }
   create(jsonData) {
-    let { merge } = this.config,
-      r = [];
+    let { merge } = this.config;
+    let geometryCollection = [];
     jsonData.features.forEach((item) => {
       const obj = new Object3D();
       let { name, center, centroid } = item.properties;
@@ -267,14 +258,14 @@ export class Country {
           const m = new Shape();
           for (let o = 0; o < s.length; o++) {
             if (!s[o][0] || !s[o][1]) return !1;
-            const [p, l] = this.geoProjection(s[o]);
+            const [p, l] = geoProjection(s[o]);
             if (!isNaN(p) && !isNaN(l)) {
               o === 0 && m.moveTo(p, -l);
               m.lineTo(p, -l);
             }
           }
           const shape = new ShapeGeometry(m);
-          if (merge) r.push(shape);
+          if (merge) geometryCollection.push(shape);
           else {
             const shapeMesh = new Mesh(shape, this.config.material);
             shapeMesh.renderOrder = this.config.renderOrder;
@@ -286,7 +277,7 @@ export class Country {
       merge || this.mapGroup.add(obj);
     });
     if (merge) {
-      let geo = mergeBufferGeometries(r);
+      let geo = mergeBufferGeometries(geometryCollection);
       const mesh = new Mesh(geo, this.config.material);
       mesh.renderOrder = this.config.renderOrder;
       this.mapGroup.add(mesh);
@@ -297,5 +288,297 @@ export class Country {
   }
   setParent(e) {
     e.add(this.mapGroup);
+  }
+}
+
+export function geoProjection(e) {
+  return d3.geoMercator().center([0, 0]).scale(120).translate([0, 0])(e);
+}
+
+export class Diffuse {
+  constructor({
+    pointMaterial,
+    time,
+    gridSize,
+    diffuseColor,
+    diffuseSpeed,
+    diffuseWidth,
+    diffuseDir,
+  }) {
+    this.time = time;
+
+    this.options = Object.assign(
+      {},
+      {
+        pointMaterial,
+        gridSize,
+        diffuseColor,
+        diffuseSpeed,
+        diffuseWidth,
+        diffuseDir,
+      }
+    );
+    this.init();
+  }
+  init() {
+    let material = null;
+    const {
+      pointMaterial,
+      diffuseColor,
+      diffuseSpeed,
+      diffuseWidth,
+      gridSize,
+    } = this.options;
+    let limit = gridSize / diffuseSpeed;
+    pointMaterial.onBeforeCompile = (mat) => {
+      material = mat;
+
+      mat.uniforms = {
+        ...mat.uniforms,
+        uTime: { value: 0 },
+        uSpeed: { value: diffuseSpeed },
+        uWidth: { value: diffuseWidth },
+        uColor: { value: new Color(diffuseColor) },
+        uDir: { value: 10 },
+      };
+      mat.vertexShader = mat.vertexShader.replace(
+        "void main() {",
+        `
+            varying vec3 vPosition;
+            void main(){
+              vPosition = position;
+          `
+      );
+      mat.fragmentShader = mat.fragmentShader.replace(
+        "void main() {",
+        `
+          uniform float uTime;
+          uniform float uSpeed;
+          uniform float uWidth;
+          uniform vec3 uColor;
+          uniform float uDir;
+          varying vec3 vPosition;
+
+          void main(){
+        `
+      );
+      mat.fragmentShader = mat.fragmentShader.replace(
+        "#include <output_fragment>",
+        `
+          #ifdef OPAQUE
+          diffuseColor.a = 1.0;
+          #endif
+
+          #ifdef USE_TRANSMISSION
+          diffuseColor.a *= material.transmissionAlpha;
+          #endif
+
+          float r = uTime * uSpeed;
+          //光环宽度
+          float w = 0.0;
+          if(w>uWidth){
+            w = uWidth;
+          }else{
+            w = uTime * 5.0;
+          }
+          //几何中心点
+          vec2 center = vec2(0.0, 0.0);
+          // 距离圆心的距离
+
+          float rDistance = distance(vPosition.xz, center);
+          if(uDir==2.0){
+            rDistance = distance(vPosition.xy, center);
+          }
+          if(rDistance > r && rDistance < r + 2.0 * w) {
+            float per = 0.0;
+            if(rDistance < r + w) {
+              per = (rDistance - r) / w;
+              outgoingLight = mix(outgoingLight, uColor, per);
+            } else {
+              per = (rDistance - r - w) / w;
+              outgoingLight = mix(uColor, outgoingLight, per);
+            }
+            gl_FragColor = vec4(outgoingLight, diffuseColor.a);
+          } else {
+            gl_FragColor = vec4(outgoingLight, 0.0);
+          }
+        `
+      );
+    };
+    this.time.on("tick", (val) => {
+      if (!material) return;
+      material.uniforms.uTime.value += val;
+      material.uniforms.uTime.value > limit &&
+        (material.uniforms.uTime.value = 0);
+    });
+  }
+}
+export class emitter {
+  constructor() {
+    this.events = new Map();
+  }
+  on(e, t) {
+    let s = this.events.get(e);
+    s || ((s = new Set()), this.events.set(e, s)), s.add(t);
+  }
+  off(e, t) {
+    const s = this.events.get(e);
+    s && (t ? s.delete(t) : this.events.delete(e));
+  }
+  emit(e, ...t) {
+    const s = this.events.get(e);
+    s &&
+      s.forEach((n) => {
+        n(...t);
+      });
+  }
+  once(e, t) {
+    const s = (...n) => {
+      t(...n);
+      this.off(e, s);
+    };
+    this.on(e, s);
+  }
+}
+export class Timer extends emitter {
+  constructor() {
+    super();
+    this.start = Date.now();
+    this.current = this.start;
+    this.elapsed = 0;
+    this.delta = 16;
+    this.clock = new Clock();
+    this.timer = window.requestAnimationFrame(() => {
+      this.tick();
+    });
+  }
+  tick() {
+    const e = Date.now();
+    this.delta = e - this.current;
+    this.current = e;
+    this.elapsed = this.current - this.start;
+    const t = this.clock.getDelta(),
+      s = this.clock.getElapsedTime();
+    if (this.emit("tick", t, s) && this.stop)
+      return window.cancelAnimationFrame(this.timer);
+    this.timer = window.requestAnimationFrame(() => {
+      this.tick();
+    });
+  }
+  destroy() {
+    this.stop = true;
+    this.off("tick");
+  }
+}
+
+export class initShader {
+  constructor(material, opt) {
+    this.shader = null;
+    this.config = Object.assign(
+      { uColor1: 2780818, uColor2: 860197, size: 15, dir: "x" },
+      opt
+    );
+    this.init(material);
+  }
+  init(material) {
+    let { uColor1, uColor2, dir, size } = this.config,
+      h = { x: 1, y: 2, z: 3 };
+    material.onBeforeCompile = (r) => {
+      this.shader = r;
+      r.uniforms = {
+        ...r.uniforms,
+        uColor1: { value: new Color(uColor1) },
+        uColor2: { value: new Color(uColor2) },
+        uDir: { value: h[dir] },
+        uSize: { value: size },
+      };
+      r.vertexShader = r.vertexShader.replace(
+        "void main() {",
+        `
+                attribute float alpha;
+                varying vec3 vPosition;
+                varying float vAlpha;
+                void main() {
+                  vAlpha = alpha;
+                  vPosition = position;
+              `
+      );
+      r.fragmentShader = r.fragmentShader.replace(
+        "void main() {",
+        `
+          varying vec3 vPosition;
+          varying float vAlpha;
+          uniform vec3 uColor1;
+          uniform vec3 uColor2;
+          uniform float uDir;
+          uniform float uSize;
+
+          void main() {
+        `
+      );
+      r.fragmentShader = r.fragmentShader.replace(
+        "#include <opaque_fragment>",
+        `
+            #ifdef OPAQUE
+            diffuseColor.a = 1.0;
+            #endif
+
+              // https://github.com/mrdoob/three.js/pull/22425
+              #ifdef USE_TRANSMISSION
+              diffuseColor.a *= transmissionAlpha + 0.1;
+              #endif
+              // vec3 gradient = mix(uColor1, uColor2, vPosition.x / 15.0);
+              vec3 gradient = vec3(0.0,0.0,0.0);
+              if(uDir==1.0){
+                gradient = mix(uColor1, uColor2, vPosition.x/ uSize);
+              }else if(uDir==2.0){
+                gradient = mix(uColor1, uColor2, vPosition.z/ uSize);
+              }else if(uDir==3.0){
+                gradient = mix(uColor1, uColor2, vPosition.y/ uSize);
+              }
+              outgoingLight = outgoingLight*gradient;
+
+
+              gl_FragColor = vec4( outgoingLight, diffuseColor.a  );
+              `
+      );
+    };
+  }
+}
+
+export class CustomPlan {
+  constructor({ time: i }, opt) {
+    this.time = i;
+    this.options = Object.assign(
+      {},
+      {
+        width: 10,
+        scale: 1,
+        position: new Vector3(0, 0, 0),
+        needRotate: false,
+        rotateSpeed: 0.001,
+        material: new MeshBasicMaterial({
+          transparent: true,
+          opacity: 1,
+          depthTest: true,
+        }),
+      },
+      opt
+    );
+    const planGeo = new PlaneGeometry(this.options.width, this.options.width);
+    const plan = new Mesh(planGeo, this.options.material);
+    plan.position.copy(this.options.position);
+    plan.scale.set(this.options.scale, this.options.scale, this.options.scale);
+    this.instance = plan;
+  }
+  setParent(i) {
+    i.add(this.instance);
+    this.time.on("tick", () => {
+      this.update();
+    });
+  }
+  update() {
+    this.options.needRotate &&
+      (this.instance.rotation.z += this.options.rotateSpeed);
   }
 }

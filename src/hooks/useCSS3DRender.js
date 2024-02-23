@@ -1,17 +1,17 @@
 import {
-  CSS2DObject,
-  CSS2DRenderer,
-} from "three/examples/jsm/renderers/CSS2DRenderer";
-export default function useCSS2DRender() {
+  CSS3DObject,
+  CSS3DRenderer,
+} from "three/examples/jsm/renderers/CSS3DRenderer";
+export default function useCSS3DRender() {
   /**
    * 初始化标签-
    * @param {*} options 参数
    * @param {*} container canvas内容容器
    * @returns
    */
-  const initCSS2DRender = (options, container) => {
+  const initCSS3DRender = (options, container) => {
     let { width, height } = options; // 获取世界的宽高
-    let css2dRender = new CSS2DRenderer(); // 实例化css2d渲染器
+    let css2dRender = new CSS3DRenderer(); // 实例化css2d渲染器
     css2dRender.setSize(width, height); // 设置渲染器的尺寸
     css2dRender.domElement.style.position = "absolute"; // 设置定位位置
     css2dRender.domElement.style.left = "0px";
@@ -20,13 +20,7 @@ export default function useCSS2DRender() {
     container.appendChild(css2dRender.domElement); // 插入到容器当中
     return css2dRender;
   };
-  /**
-   * 创建2d标签
-   * @param {*} name  标签内容
-   * @param {*} className 标签class
-   * @returns
-   */
-  const create2DTag = (name = "", className = "") => {
+  const create3DTag = (name = "", className = "") => {
     let tag = document.createElement("div");
     tag.innerHTML = name;
     tag.className = className;
@@ -43,7 +37,7 @@ export default function useCSS2DRender() {
       tag.style.background = "rgba(0,0,0,0.6)";
       tag.style.borderRadius = "4px";
     }
-    let label = new CSS2DObject(tag);
+    let label = new CSS3DObject(tag);
     /**
      * 标签显示，
      * @param {*} name 显示内容
@@ -63,7 +57,7 @@ export default function useCSS2DRender() {
     return label;
   };
   return {
-    initCSS2DRender,
-    create2DTag,
+    initCSS3DRender,
+    create3DTag,
   };
 }

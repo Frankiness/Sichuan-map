@@ -10,14 +10,14 @@ import { initCoord } from "@/utils/utils";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
 
-export class Line {
+export class CustomLine {
   constructor(opt = {}) {
     this.config = Object.assign(
       {
         visibleProvince: "",
         center: [0, 0],
         data: "",
-        material: new LineBasicMaterial({ color: 16777215 }),
+        material: new LineBasicMaterial({ color: "#3f5d75" }),
         type: "LineLoop",
         renderOrder: 1,
       },
@@ -28,11 +28,7 @@ export class Line {
     this.lineGroup = this.create(jsonData);
   }
   geoProjection(e) {
-    return d3
-      .geoMercator()
-      .center(this.config.center)
-      .scale(120)
-      .translate([0, 0])(e);
+    return d3.geoMercator().center([0, 0]).scale(120).translate([0, 0])(e);
   }
   create(jsonData) {
     const { type, visibleProvince } = this.config;
