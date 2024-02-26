@@ -1,5 +1,7 @@
 import * as d3 from "d3";
 import {
+  BufferAttribute,
+  BufferGeometry,
   Clock,
   Color,
   ExtrudeGeometry,
@@ -9,8 +11,11 @@ import {
   MeshLambertMaterial,
   Object3D,
   PlaneGeometry,
+  Points,
+  PointsMaterial,
   Shape,
   ShapeGeometry,
+  Texture,
   TextureLoader,
   Vector2,
   Vector3,
@@ -413,7 +418,7 @@ export class Diffuse {
     });
   }
 }
-export class emitter {
+export class Emitter {
   constructor() {
     this.events = new Map();
   }
@@ -440,7 +445,7 @@ export class emitter {
     this.on(e, s);
   }
 }
-export class Timer extends emitter {
+export class Timer extends Emitter {
   constructor() {
     super();
     this.start = Date.now();
@@ -471,7 +476,7 @@ export class Timer extends emitter {
   }
 }
 
-export class initShader {
+export class InitShader {
   constructor(material, opt) {
     this.shader = null;
     this.config = Object.assign(
@@ -580,5 +585,142 @@ export class CustomPlan {
   update() {
     this.options.needRotate &&
       (this.instance.rotation.z += this.options.rotateSpeed);
+  }
+}
+
+class CustomTexture extends Texture {
+  constructor(
+    image,
+    mapping,
+    wrapS,
+    wrapT,
+    magFilter,
+    minFilter,
+    format,
+    type,
+    anisotropy
+  ) {
+    super(
+      image,
+      mapping,
+      wrapS,
+      wrapT,
+      magFilter,
+      minFilter,
+      format,
+      type,
+      anisotropy
+    );
+    this.isCanvasTexture = true;
+    this.needsUpdate = true;
+  }
+}
+export class Particle {
+  constructor({ time }, config = {}) {
+    this.instance = null;
+    this.time = time;
+    this.enable = true;
+    this.config = Object.assign(
+      {
+        num: 100,
+        range: 500,
+        speed: 0.01,
+        renderOrder: 99,
+        dir: "up",
+        material: new PointsMaterial({
+          map: Particle.createTexture(),
+          size: 20,
+          color: 16777215,
+          transparent: true,
+          opacity: 1,
+          depthTest: false,
+          vertexColors: true,
+          blending: 2,
+          sizeAttenuation: true,
+        }),
+      },
+      config
+    );
+    this.create();
+  }
+  create() {
+    const { range, dir, material, num, renderOrder } = this.config;
+    const position = [];
+    const colors = [];
+    const velocities = [];
+    for (let d = 0; d < num; d++) {
+      position.push(
+        Math.random() * range - range / 2,
+        Math.random() * range - range / 2,
+        Math.random() * range - range / 2
+      );
+      let direction = dir === "up" ? 1 : -1;
+      velocities.push(
+        Math.random() * direction,
+        (0.1 + Math.random()) * direction,
+        0.1 + Math.random() * direction
+      );
+      const color = material.color.clone();
+      let hsl = {};
+      color.getHSL(hsl);
+      color.setHSL(hsl.h, hsl.s, hsl.l * Math.random());
+      colors.push(color.r, color.g, color.b);
+    }
+    const geo = new BufferGeometry();
+    geo.setAttribute(
+      "position",
+      new BufferAttribute(new Float32Array(position), 3)
+    );
+    geo.setAttribute(
+      "velocities",
+      new BufferAttribute(new Float32Array(velocities), 3)
+    );
+    geo.setAttribute("color", new BufferAttribute(new Float32Array(colors), 3));
+    this.instance = new Points(geo, material);
+    this.instance.renderOrder = renderOrder;
+  }
+  static createTexture() {
+    let ele = document.createElement("canvas");
+    ele.width = 1024;
+    ele.height = 1024;
+    let canvas = ele.getContext("2d");
+    let gradientColor = canvas.createRadialGradient(512, 512, 0, 512, 512, 512);
+    gradientColor.addColorStop(0, "rgba(255,255,255,1)");
+    gradientColor.addColorStop(1, "rgba(255,255,255,0)");
+    canvas.fillStyle = gradientColor;
+    canvas.fillRect(0, 0, 1024, 1024);
+    return new CustomTexture(ele);
+  }
+  update(e, s) {
+    if (!this.instance) return false;
+    const { range, speed, dir } = this.config;
+    const direction = dir === "up" ? 1 : -1;
+    const positions = this.instance.geometry.getAttribute("position");
+    const velocities = this.instance.geometry.getAttribute("velocities");
+    const count = positions.count;
+    for (let t = 0; t < count; t++) {
+      let px = positions.getX(t);
+      positions.getY(t);
+      let pz = positions.getZ(t),
+        vx = velocities.getX(t),
+        vy = velocities.getY(t);
+      velocities.getZ(t);
+      px += Math.sin(vx * s) * e;
+      pz += speed * direction;
+      pz > range / 2 && direction === 1 && (pz = -range / 2);
+      pz < -range / 2 && direction === -1 && (pz = range / 2);
+      positions.setX(t, px);
+      positions.setZ(t, pz);
+      velocities.setX(t, vx);
+      velocities.setY(t, vy);
+    }
+    positions.needsUpdate = true;
+    velocities.needsUpdate = true;
+  }
+  setParent(ele) {
+    ele.add(this.instance);
+    this.time.on("tick", (s, n) => {
+      this.enable && this.update(s, n);
+    });
   }
 }

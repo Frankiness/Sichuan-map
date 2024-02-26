@@ -18,7 +18,8 @@ import {
   CustomPlan,
   Diffuse,
   geoProjection,
-  initShader,
+  InitShader,
+  Particle,
   ProvinceSide,
   Timer,
 } from "@/utils/utils";
@@ -314,6 +315,30 @@ export default {
               }
             });
         }
+        createParticles() {
+          this.particles = new Particle(this, {
+            num: 15,
+            range: 30,
+            dir: "up",
+            speed: 0.05,
+            material: new PointsMaterial({
+              map: Particle.createTexture(),
+              size: 1,
+              color: "#eee",
+              transparent: true,
+              opacity: 1,
+              depthTest: false,
+              depthWrite: false,
+              vertexColors: true,
+              blending: 2,
+              sizeAttenuation: true,
+            }),
+          });
+          this.particles.instance.position.set(centerX, -centerY, 0);
+          this.particles.setParent(this.scene);
+          this.particles.enable = true;
+          this.particles.instance.visible = true;
+        }
         async createProvince() {
           let [lambertMat, sideMat] = this.createProvinceMaterial();
           this.focusMapTopMaterial = lambertMat;
@@ -333,7 +358,7 @@ export default {
             transparent: true,
             opacity: 0.5,
           });
-          new initShader(defaultMaterial, {
+          new InitShader(defaultMaterial, {
             uColor1: "#2a6e92",
             uColor2: "#102736",
           });
@@ -820,7 +845,7 @@ export default {
               depthTest: false,
               fog: false,
             });
-            new initShader(mat, {
+            new InitShader(mat, {
               uColor1: idx > 3 ? "#fbdf88" : "#50bbfe",
               uColor2: idx > 3 ? "#fffef4" : "#77fbf5",
               size,
@@ -984,7 +1009,7 @@ export default {
             z: 5,
           });
 
-          this.scene.fog = new Fog("#102736", 1, 50);
+          // this.scene.fog = new Fog("#102736", 1, 50);
           this.scene.background = new Color("#102736");
         }
         createFloor() {
@@ -1103,7 +1128,7 @@ export default {
       baseEarth.createModel();
       baseEarth.createEvent();
       baseEarth.createFlyLine();
-      // baseEarth.createLabel();
+      baseEarth.createParticles();
       baseEarth.createBar();
       baseEarth.createTransition();
 
