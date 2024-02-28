@@ -60,7 +60,7 @@ import { InteractionManager } from "@/utils/interactionManager";
 import useCSS2DRender from "@/hooks/useCSS2DRender";
 import useCSS3DRender from "@/hooks/useCSS3DRender";
 
-const isDebug = false;
+const isDebug = false; // 是否显示gui和helper
 const timeline = gsap.timeline();
 timeline.addLabel("focusMap", 2);
 timeline.addLabel("focusMapOpacity", 2.5);
@@ -93,7 +93,7 @@ export default {
     };
 
     const { requestData } = useFileLoader();
-    const { transfromGeoJSON } = useConversionStandardData();
+    const { transformGeoJSON } = useConversionStandardData();
     const { initCSS2DRender, create2DTag } = useCSS2DRender();
     const { initCSS3DRender } = useCSS3DRender();
 
@@ -121,7 +121,7 @@ export default {
     onMounted(async () => {
       const gui = new GUI();
       // GeoJson数据
-      let provinceData = transfromGeoJSON(
+      let provinceData = transformGeoJSON(
         await requestData("./data/map/浙江省.json")
       );
 
@@ -524,7 +524,7 @@ export default {
         }
         async createChina() {
           let jsonData = await requestData("./data/map/中华人民共和国.json");
-          let chinaJson = transfromGeoJSON(jsonData);
+          let chinaJson = transformGeoJSON(jsonData);
           let china = new Country({
             data: chinaJson,
             center: centerLatAndLon,

@@ -4,7 +4,7 @@ const useConversionStandardData = () => {
    * @param {*} worldData geo数据
    * @returns
    */
-  const transfromGeoJSON = (worldData) => {
+  const transformGeoJSON = (worldData) => {
     let features = worldData.features;
     for (let i = 0; i < features.length; i++) {
       const element = features[i];
@@ -33,6 +33,6 @@ const useConversionStandardData = () => {
     }
     return roadData;
   };
-  return { transfromGeoJSON, transformGeoRoad };
+  return { transformGeoJSON, transformGeoRoad };
 };
 export default useConversionStandardData;
