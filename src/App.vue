@@ -60,6 +60,7 @@ import { InteractionManager } from "@/utils/interactionManager";
 import useCSS2DRender from "@/hooks/useCSS2DRender";
 import useCSS3DRender from "@/hooks/useCSS3DRender";
 
+const isDebug = false;
 const timeline = gsap.timeline();
 timeline.addLabel("focusMap", 2);
 timeline.addLabel("focusMapOpacity", 2.5);
@@ -94,7 +95,7 @@ export default {
     const { requestData } = useFileLoader();
     const { transfromGeoJSON } = useConversionStandardData();
     const { initCSS2DRender, create2DTag } = useCSS2DRender();
-    const { initCSS3DRender, create3DTag } = useCSS3DRender();
+    const { initCSS3DRender } = useCSS3DRender();
 
     // 创建标签
     const initLabel = (properties) => {
@@ -932,23 +933,25 @@ export default {
           );
           pointLight.position.set(opt.x, opt.y, opt.z);
           this.scene.add(pointLight);
-          const helper = new PointLightHelper(pointLight, 1);
-          this.scene.add(helper);
+          if (isDebug) {
+            const helper = new PointLightHelper(pointLight, 1);
+            this.scene.add(helper);
 
-          const point = gui.addFolder("Point" + Math.random());
-          point.addColor(opt, "color");
-          point.add(opt, "intensity", 1, 100, 1);
-          point.add(opt, "distance", 100, 2000, 10);
-          point.add(opt, "x", -30, 300, 1);
-          point.add(opt, "y", -30, 300, 1);
-          point.add(opt, "z", -30, 300, 1);
-          point.onChange(({ object: i }) => {
-            pointLight.color = new Color(i.color);
-            pointLight.distance = i.distance;
-            pointLight.intensity = i.intensity;
-            pointLight.position.set(i.x, i.y, i.z);
-            helper.update();
-          });
+            const point = gui.addFolder("Point" + Math.random());
+            point.addColor(opt, "color");
+            point.add(opt, "intensity", 1, 100, 1);
+            point.add(opt, "distance", 100, 2000, 10);
+            point.add(opt, "x", -30, 300, 1);
+            point.add(opt, "y", -30, 300, 1);
+            point.add(opt, "z", -30, 300, 1);
+            point.onChange(({ object: i }) => {
+              pointLight.color = new Color(i.color);
+              pointLight.distance = i.distance;
+              pointLight.intensity = i.intensity;
+              pointLight.position.set(i.x, i.y, i.z);
+              helper.update();
+            });
+          }
         }
         createDirectionalLight(opt) {
           let directLight = new DirectionalLight(opt.color, opt.intensity);
@@ -958,17 +961,19 @@ export default {
           directLight.shadow.mapSize.width = 1024;
           directLight.shadow.mapSize.height = 1024;
 
-          const helper = new DirectionalLightHelper(directLight, 10);
-          this.scene.add(directLight, helper);
+          if (isDebug) {
+            const helper = new DirectionalLightHelper(directLight, 10);
+            this.scene.add(directLight, helper);
 
-          const light = gui.addFolder("directLight");
-          light.add(directLight.position, "x", -30, 100, 1);
-          light.add(directLight.position, "y", -30, 100, 1);
-          light.add(directLight.position, "z", -30, 100, 1);
-          light.add(directLight, "intensity", 1, 100, 1);
-          light.onChange(() => {
-            helper.update();
-          });
+            const light = gui.addFolder("directLight");
+            light.add(directLight.position, "x", -30, 100, 1);
+            light.add(directLight.position, "y", -30, 100, 1);
+            light.add(directLight.position, "z", -30, 100, 1);
+            light.add(directLight, "intensity", 1, 100, 1);
+            light.onChange(() => {
+              helper.update();
+            });
+          }
 
           return directLight;
         }
@@ -977,20 +982,22 @@ export default {
           let ambLight = new AmbientLight(config.color, config.intensity);
           this.scene.add(ambLight);
 
-          const environment = gui.addFolder("Environment");
-          environment.add(ambLight, "intensity", 1, 10, 1);
-          environment.addColor(config, "color");
-          environment.onChange(({ object }) => {
-            ambLight.color = new Color(object.color);
-          });
+          if (isDebug) {
+            const environment = gui.addFolder("Environment");
+            environment.add(ambLight, "intensity", 1, 10, 1);
+            environment.addColor(config, "color");
+            environment.onChange(({ object }) => {
+              ambLight.color = new Color(object.color);
+            });
 
-          // this.directionalLight = this.createDirectionalLight({
-          //   color: '#fff',
-          //   intensity: 5,
-          //   x: 160,
-          //   y: 76,
-          //   z: -8,
-          // });
+            this.directionalLight = this.createDirectionalLight({
+              color: "#fff",
+              intensity: 5,
+              x: 160,
+              y: 76,
+              z: -8,
+            });
+          }
 
           this.createPointLight({
             color: "#021031",
@@ -1009,7 +1016,7 @@ export default {
             z: 5,
           });
 
-          // this.scene.fog = new Fog("#102736", 1, 50);
+          this.scene.fog = new Fog("#12374f", 1, 50);
           this.scene.background = new Color("#102736");
         }
         createFloor() {
@@ -1075,7 +1082,7 @@ export default {
           this.renderer.shadowMap.enabled = false;
         }
         loop() {
-          // console.log(this.camera.position);
+          this.stats.update();
           this.animationStop = window.requestAnimationFrame(() => {
             this.loop();
           });
