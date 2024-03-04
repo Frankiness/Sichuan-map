@@ -119,7 +119,7 @@ export default {
     const bottomZ = -0.2;
 
     onMounted(async () => {
-      const gui = new GUI();
+      const gui = isDebug ? new GUI() : null;
       // GeoJson数据
       let provinceData = transformGeoJSON(
         await requestData("./data/map/浙江省.json")
